@@ -2,13 +2,18 @@ use dioxus::prelude::*;
 
 static CSS: Asset = asset!("/assets/main.css");
 
+#[derive(serde::Deserialize)]
+struct DogApi {
+    message: String,
+}
+
 fn main() {
     dioxus::launch(App);
 }
 
 #[component]
 fn App() -> Element {
-    rsx! { 
+    rsx! {
         document::Stylesheet{ href: CSS }
         Title {}
         DogView {}
@@ -27,28 +32,25 @@ fn Title() -> Element {
 
 #[component]
 fn DogView() -> Element {
-    let save = move |evt| {};
-    let skip = move |evt| {};
-
-    let img_src = use_hook(|| "https://images.dog.ceo/breeds/pitbull/dog-3981540_1280.jpg");
+    let mut img_src = use_resource(|| async move {
+        reqwest::get("https://dog.ceo/api/breeds/image/random")
+            .await
+            .unwrap()
+            .json::<DogApi>()
+            .await
+            .unwrap()
+            .message
+    });
 
     rsx! {
         div {
             id: "dogview",
-            img { src: "{img_src}" }
+            img { src: img_src.cloned().unwrap_or_default() }
         }
         div {
             id: "buttons",
-            button {
-                onclick: skip,
-                id: "skip",
-                "skip"
-            }
-            button {
-                onclick: save,
-                id: "save",
-                "save!"
-            }
+            button { onclick: move |_| img_src.restart(), id: "skip", "skip" }
+            button { onclick: move |_| img_src.restart(), id: "save", "save!" }
         }
     }
 }
