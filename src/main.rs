@@ -1,10 +1,20 @@
 use dioxus::prelude::*;
-mod components;
 mod backend;
+mod components;
 
 use crate::components::*;
 
 static CSS: Asset = asset!("/assets/main.css");
+
+#[derive(Routable, Clone, PartialEq)]
+enum Route {
+    #[layout(NavBar)]
+    #[route("/")]
+    DogView,
+
+    #[route("/favorites")]
+    Favorites,
+}
 
 #[derive(serde::Deserialize)]
 struct DogApi {
@@ -19,8 +29,9 @@ fn main() {
 fn App() -> Element {
     rsx! {
         document::Stylesheet { href: CSS }
-        Title {}
-        DogView {}
+        // Title {}
+        // DogView {}
+        Router::<Route> {}
     }
 }
 
@@ -56,27 +67,11 @@ fn DogView() -> Element {
                 onclick: move |_| async move {
                     let current = img_src.cloned().unwrap();
                     img_src.restart();
-                    _ = save_dog(current).await;
+                    _ = backend::save_dog(current).await;
                 },
 
                 "save!"
             }
         }
     }
-}
-
-#[server]
-async fn save_dog(image: String) -> Result<()> {
-    DB.with(|f| f.execute("INSERT INTO hot_dog (url) VALUES (?1)", &[&image]))?;
-    Ok(())
-}
-
-#[cfg(feature = "server")]
-thread_local! {
-    pub static DB: std::sync::Arc<rusqlite::Connection> = {
-        let conn = rusqlite::Connection::open("hotdog.db").expect("Failed to open database");
-        conn.execute_batch("CREATE TABLE IF NOT EXISTS hot_dog (id INTEGER PRIMARY KEY, url TEXT NOT NULL);")
-            .expect("Failed to create table");
-        std::sync::Arc::new(conn)
-    };
 }
